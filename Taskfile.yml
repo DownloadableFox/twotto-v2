@@ -1,0 +1,9 @@
+# https://taskfile.dev
+
+version: '3'
+
+tasks:
+  start:
+    desc: Starts the bot in development mode
+    cmds:
+      - go run ./...

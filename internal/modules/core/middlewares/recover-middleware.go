@@ -18,13 +18,13 @@ type RecoverMiddleware struct {
 	logger zerolog.Logger
 }
 
-func NewRecoverMiddleware(parent *zerolog.Logger) *RecoverMiddleware {
+func NewRecoverMiddleware(parent zerolog.Logger) *RecoverMiddleware {
 	return &RecoverMiddleware{
 		logger: parent.With().Str("middleware", "recover").Logger(),
 	}
 }
 
-func (r *RecoverMiddleware) Handle(command api.Command, next api.ExecuteFunction) api.ExecuteFunction {
+func (r *RecoverMiddleware) Handle(command api.Command, next api.CommandExecuteFunc) api.CommandExecuteFunc {
 	return func(c context.Context, s *discordgo.Session, i *discordgo.InteractionCreate) error {
 		defer r.PanicWrap(s, i)
 
@@ -43,7 +43,7 @@ func (r *RecoverMiddleware) Handle(command api.Command, next api.ExecuteFunction
 }
 
 func (r *RecoverMiddleware) PanicWrap(s *discordgo.Session, i *discordgo.InteractionCreate) {
-	if rec := recover(); rec == nil {
+	if rec := recover(); rec != nil {
 		// Generate the stacktrace
 		stacktrace := make([]byte, 4096)
 		count := runtime.Stack(stacktrace, false)

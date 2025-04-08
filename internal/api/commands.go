@@ -10,8 +10,8 @@ import (
 	"github.com/rs/zerolog/log"
 )
 
-type ExecuteFunction func(c context.Context, s *discordgo.Session, i *discordgo.InteractionCreate) error
-type MiddlewareFunction func(command Command, next ExecuteFunction) ExecuteFunction
+type CommandExecuteFunc func(c context.Context, s *discordgo.Session, i *discordgo.InteractionCreate) error
+type CommandMiddlewareFunc func(command Command, next CommandExecuteFunc) CommandExecuteFunc
 
 type CommandStack struct {
 	Command    Command
@@ -24,7 +24,7 @@ type Command interface {
 }
 
 type CommandMiddleware interface {
-	Handle(command Command, next ExecuteFunction) ExecuteFunction
+	Handle(command Command, next CommandExecuteFunc) CommandExecuteFunc
 }
 
 type CommandManager interface {
@@ -45,7 +45,7 @@ func NewCommandManager() *CommandManagerImpl {
 func (cm *CommandManagerImpl) PublishCommands(session *discordgo.Session) error {
 	type GeneratedCommand struct {
 		data    discordgo.ApplicationCommand
-		execute ExecuteFunction
+		execute CommandExecuteFunc
 	}
 
 	var publishChannel = make(chan GeneratedCommand, len(cm.commands))
@@ -56,6 +56,8 @@ func (cm *CommandManagerImpl) PublishCommands(session *discordgo.Session) error 
 	}
 
 	go func() {
+		defer close(publishChannel)
+
 		for _, stack := range cm.commands {
 			data := stack.Command.Data()
 
@@ -77,8 +79,6 @@ func (cm *CommandManagerImpl) PublishCommands(session *discordgo.Session) error 
 				execute: next,
 			}
 		}
-
-		close(publishChannel)
 	}()
 
 	// TODO: Multi-thread this to allow for multiple commands to be published at once
@@ -94,6 +94,10 @@ func (cm *CommandManagerImpl) PublishCommands(session *discordgo.Session) error 
 
 		// Register the command handler with the session
 		session.AddHandler(func(s *discordgo.Session, i *discordgo.InteractionCreate) {
+			if i.ApplicationCommandData().Name != data.Name {
+				return
+			}
+
 			defer func() {
 				if rec := recover(); rec != nil {
 					// Get stacktrace

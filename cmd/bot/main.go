@@ -5,13 +5,21 @@ import (
 	"os"
 	"os/signal"
 	"syscall"
+	"time"
 
 	"github.com/DownloadableFox/twotto-v2/internal/api"
 	"github.com/DownloadableFox/twotto-v2/internal/config"
-	"github.com/DownloadableFox/twotto-v2/internal/modules/extras"
+	"github.com/DownloadableFox/twotto-v2/internal/modules/core"
+	"github.com/DownloadableFox/twotto-v2/internal/modules/yiff"
 	"github.com/bwmarrin/discordgo"
+	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
 )
+
+func init() {
+	log.Logger = log.Output(zerolog.ConsoleWriter{Out: os.Stdout, TimeFormat: time.RFC3339})
+	zerolog.SetGlobalLevel(zerolog.DebugLevel)
+}
 
 func main() {
 	configProvider := config.NewJsonConfigProvider()
@@ -23,13 +31,35 @@ func main() {
 		return
 	}
 
-	// Command Manager
-	commandManager := api.NewCommandManager()
-
 	// Initialize the bot with the loaded config
 	client, err := discordgo.New("Bot " + config.BotToken)
 	if err != nil {
 		log.Fatal().Err(err).Msg("Failed to create Discord client!")
+	}
+
+	// Set the bot's presence
+	client.Identify.Intents = discordgo.IntentsGuilds | discordgo.IntentsGuildMessages | discordgo.IntentsGuildMessageReactions
+	client.StateEnabled = true
+	client.Compress = true
+
+	// Command Manager
+	moduleManager := api.NewModuleManager()
+	commandManager := api.NewCommandManager()
+	eventManager := api.NewEventManager()
+
+	// Register the core module
+	log.Info().Msg("Registering modules ...")
+	if err := moduleManager.RegisterModules(
+		core.NewCoreModule(log.Logger),
+		yiff.NewYiffModule(log.Logger),
+	); err != nil {
+		log.Fatal().Err(err).Msg("Failed to register module!")
+	}
+
+	// Register events
+	log.Info().Msg("Registering events ...")
+	if err := moduleManager.OnEvents(client, eventManager); err != nil {
+		log.Fatal().Err(err).Msg("Failed to register events!")
 	}
 
 	// Run the bot until terminated
@@ -38,31 +68,11 @@ func main() {
 	}
 	defer client.Close()
 
-	// Set the bot's presence
-	client.Identify.Intents = discordgo.IntentsGuilds | discordgo.IntentsGuildMessages | discordgo.IntentsGuildMessageReactions
-	client.StateEnabled = true
-	client.Compress = true
-
-	log.Info().Msg("Initializing modules ...")
-
-	// Register the command manager with the Discord session
-	if err := extras.Initialize(client, commandManager); err != nil {
-		log.Fatal().Err(err).Msg("Failed to initialize extras module!")
+	// Register commands
+	log.Info().Msg("Registering commands ...")
+	if err := moduleManager.OnCommands(client, commandManager); err != nil {
+		log.Fatal().Err(err).Msg("Failed to register commands!")
 	}
-
-	// Register the command manager with the Discord session
-	log.Info().Msg("Publishing commands ...")
-
-	// Register the command manager with the Discord session
-	if err := commandManager.PublishCommands(client); err != nil {
-		log.Fatal().Err(err).Msg("Failed to publish commands!")
-	}
-
-	// Generate and print the bot's invite link
-	botID := client.State.User.ID
-	permissions := discordgo.PermissionManageMessages | discordgo.PermissionSendMessages
-	inviteLink := fmt.Sprintf("https://discord.com/oauth2/authorize?client_id=%s&scope=bot&permissions=%d", botID, permissions)
-	log.Info().Msgf("Bot invite link: %s", inviteLink)
 
 	log.Info().Msg("Bot is set and running!")
 	sc := make(chan os.Signal, 1)

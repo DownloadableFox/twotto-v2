@@ -5,8 +5,11 @@ import (
 	"github.com/DownloadableFox/twotto-v2/internal/modules/core/middlewares"
 	"github.com/DownloadableFox/twotto-v2/internal/modules/yiff/commands"
 	"github.com/DownloadableFox/twotto-v2/internal/modules/yiff/services"
+	"github.com/DownloadableFox/twotto-v2/internal/modules/yiff/tasks"
 	"github.com/rs/zerolog"
 )
+
+var _ api.Module = (*YiffModule)(nil)
 
 type YiffModule struct {
 	logger  zerolog.Logger
@@ -31,6 +34,14 @@ func (m *YiffModule) Commands() ([]api.CommandStack, error) {
 		api.CompileCommand(
 			commands.NewYiffCommand(m.service, m.logger),
 			middlewares.NewRecoverMiddleware(m.logger),
+		),
+	}, nil
+}
+
+func (m *YiffModule) Tasks() ([]api.TaskStack, error) {
+	return []api.TaskStack{
+		api.CompileTasks(
+			tasks.NewPopularTask(m.logger, m.service),
 		),
 	}, nil
 }

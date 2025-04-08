@@ -48,3 +48,7 @@ func (m *CoreModule) Commands() ([]api.CommandStack, error) {
 		),
 	}, nil
 }
+
+func (m *CoreModule) Tasks() ([]api.TaskStack, error) {
+	return []api.TaskStack{}, nil
+}

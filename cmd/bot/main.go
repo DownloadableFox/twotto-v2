@@ -46,6 +46,7 @@ func main() {
 	moduleManager := api.NewModuleManager()
 	commandManager := api.NewCommandManager()
 	eventManager := api.NewEventManager()
+	taskManager := api.NewTaskManager()
 
 	// Register the core module
 	log.Info().Msg("Registering modules ...")
@@ -72,6 +73,12 @@ func main() {
 	log.Info().Msg("Registering commands ...")
 	if err := moduleManager.OnCommands(client, commandManager); err != nil {
 		log.Fatal().Err(err).Msg("Failed to register commands!")
+	}
+
+	// Register tasks
+	log.Info().Msg("Registering tasks ...")
+	if err := moduleManager.OnTasks(client, taskManager); err != nil {
+		log.Fatal().Err(err).Msg("Failed to register tasks!")
 	}
 
 	log.Info().Msg("Bot is set and running!")

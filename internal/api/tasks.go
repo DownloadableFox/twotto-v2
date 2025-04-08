@@ -20,7 +20,6 @@ type TaskStack struct {
 type TaskData struct {
 	Name string
 	Cron string
-	Once bool
 }
 
 type Task interface {
@@ -94,23 +93,18 @@ func (tm *TaskManagerImpl) PublishTasks(session *discordgo.Session) error {
 	}()
 
 	for task := range publishChannel {
-		if task.data.Once {
-			tm.cron.AddFunc(task.data.Cron, func() {
-				if err := task.execute(context.Background(), session); err != nil {
-					log.Error().Err(err).Msgf("Error executing task %q not handled!", task.data.Name)
-				}
-			})
-		} else {
-			tm.cron.AddFunc(task.data.Cron, func() {
-				if err := task.execute(context.Background(), session); err != nil {
-					log.Error().Err(err).Msgf("Error executing task %q not handled!", task.data.Name)
-				}
-			})
-		}
+		tm.cron.AddFunc(task.data.Cron, func() {
+			log.Debug().Msgf("Scheduling task %q with cron expression %q", task.data.Name, task.data.Cron)
+
+			if err := task.execute(context.Background(), session); err != nil {
+				log.Error().Err(err).Msgf("Error executing task %q not handled!", task.data.Name)
+			}
+		})
 	}
 
 	// Start the cron scheduler
 	tm.cron.Start()
+	log.Info().Msg("Cron scheduler started!")
 
 	return nil
 }

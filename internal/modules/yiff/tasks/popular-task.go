@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"net/http"
+	"sync"
 	"time"
 
 	"github.com/DownloadableFox/twotto-v2/internal/api"
@@ -29,53 +30,52 @@ func NewPopularTask(parent zerolog.Logger, service services.IE621Service) *Popul
 func (p *PopularTask) Data() api.TaskData {
 	return api.TaskData{
 		Name: "yiff-popular",
-		// Cron: "48 13 * * *",
-		Cron: "5 0 * * *",
-		Once: false,
+		Cron: "30 23 * * *",
 	}
 }
 
 func (p *PopularTask) Run(ctx context.Context, s *discordgo.Session) error {
-	/*
-		var channels = map[string]string{
-			"1051532955056607302": "1051532956008718378",
+	var channels = map[string]string{
+		"1051532955056607302": "1051532956008718378",
+	}
+
+	p.logger.Info().Msg("Fetching popular posts...")
+
+	// 1. Get all popular posts
+	posts, err := p.service.GetPopularPosts()
+	if err != nil {
+		return err
+	}
+
+	if len(posts) == 0 {
+		p.logger.Warn().Msg("No popular posts found- skipping day!")
+		return nil
+	}
+
+	p.logger.Info().Msgf("Found %d popular posts!", len(posts))
+
+	// 2. Send thread to selected servers
+	wg := &sync.WaitGroup{}
+	for _, guild := range s.State.Guilds {
+		if channels[guild.ID] == "" {
+			continue
 		}
 
-		// 1. Get all popular posts
-		posts, err := p.service.GetPopularPosts()
-		if err != nil {
-			return err
-		}
+		// 3. Send information message
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
 
-		if len(posts) == 0 {
-			p.logger.Warn().Msg("No popular posts found- skipping day!")
-			return nil
-		}
-
-		// 2. Send thread to selected servers
-		wg := &sync.WaitGroup{}
-		for _, guild := range s.State.Guilds {
-			if channels[guild.ID] == "" {
-				continue
+			if err := p.BeginThread(s, channels[guild.ID], posts); err != nil {
+				p.logger.Error().Err(err).Msgf("Failed to begin thread for guild %s", guild.ID)
 			}
+		}()
+	}
 
-			// 3. Send information message
-			wg.Add(1)
-			go func() {
-				defer wg.Done()
+	// 4. Wait for all threads to finish
+	wg.Wait()
+	p.logger.Info().Msg("Finished sending popular posts to all servers!")
 
-				if err := p.BeginThread(s, channels[guild.ID], posts); err != nil {
-					p.logger.Error().Err(err).Msgf("Failed to begin thread for guild %s", guild.ID)
-				}
-			}()
-		}
-
-		// 4. Wait for all threads to finish
-		wg.Wait()
-		p.logger.Info().Msg("Finished sending popular posts to all servers!")
-	*/
-
-	p.logger.Info().Msg("test")
 	return nil
 }
 
@@ -85,7 +85,7 @@ func (p *PopularTask) BeginThread(s *discordgo.Session, channelID string, posts 
 	msg, err := s.ChannelMessageSendComplex(channelID, &discordgo.MessageSend{
 		Embeds: []*discordgo.MessageEmbed{{
 			Title:       "Uploading popular posts...",
-			Description: "Searching for posts (this may take a while) ...",
+			Description: "I am trying to upload the posts (this may take a while) ...",
 			Fields: []*discordgo.MessageEmbedField{
 				{
 					Name:   "Elapsed Time",

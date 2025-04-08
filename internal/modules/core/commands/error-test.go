@@ -6,13 +6,22 @@ import (
 
 	"github.com/DownloadableFox/twotto-v2/internal/api"
 	"github.com/bwmarrin/discordgo"
+	"github.com/rs/zerolog"
 )
 
 var _ api.Command = (*ErrorTestCommand)(nil)
 
 var ErrorTestCommandPermissions int64 = discordgo.PermissionAdministrator
 
-type ErrorTestCommand struct{}
+type ErrorTestCommand struct {
+	logger zerolog.Logger
+}
+
+func NewErrorTestCommand(parent zerolog.Logger) *ErrorTestCommand {
+	return &ErrorTestCommand{
+		logger: parent.With().Str("command", "error-test").Logger(),
+	}
+}
 
 func (e *ErrorTestCommand) Data() discordgo.ApplicationCommand {
 	return discordgo.ApplicationCommand{

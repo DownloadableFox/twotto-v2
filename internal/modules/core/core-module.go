@@ -1,8 +1,6 @@
 package core
 
 import (
-	"fmt"
-
 	"github.com/DownloadableFox/twotto-v2/internal/api"
 	"github.com/DownloadableFox/twotto-v2/internal/modules/core/commands"
 	"github.com/DownloadableFox/twotto-v2/internal/modules/core/events"
@@ -22,34 +20,31 @@ func NewCoreModule(parent zerolog.Logger) *CoreModule {
 	}
 }
 
-func (c *CoreModule) OnCommands(manager api.CommandManager) error {
-	// Generate middlewares
-	recoverMiddleware := middlewares.NewRecoverMiddleware(c.Logger)
-
-	// Register the ping command
-	if err := manager.RegisterCommand(&commands.PingCommand{}, recoverMiddleware); err != nil {
-		return fmt.Errorf("failed to register ping command: %w", err)
-	}
-
-	// Register the help command
-	if err := manager.RegisterCommand(&commands.ErrorTestCommand{}, recoverMiddleware); err != nil {
-		return fmt.Errorf("failed to register help command: %w", err)
-	}
-
-	// Register the restart command
-	if err := manager.RegisterCommand(&commands.RestartCommand{}, recoverMiddleware); err != nil {
-		return fmt.Errorf("failed to register restart command: %w", err)
-	}
-
-	return nil
+func (m *CoreModule) Events() ([]api.EventStack, error) {
+	return []api.EventStack{
+		api.CompileEvent(
+			events.NewOnReadyEvent(m.Logger),
+		),
+	}, nil
 }
 
-func (c *CoreModule) OnEvents(manager api.EventManager) error {
-	// Register on ready stack
-	onReadyStack := api.CompileEvent(events.NewOnReadyEvent(c.Logger))
-	if err := manager.RegisterStack(onReadyStack); err != nil {
-		return fmt.Errorf("failed to register on ready event: %w", err)
+func (m *CoreModule) Commands() ([]api.CommandStack, error) {
+	middlewares := []api.CommandMiddleware{
+		middlewares.NewRecoverMiddleware(m.Logger),
 	}
 
-	return nil
+	return []api.CommandStack{
+		api.CompileCommand(
+			commands.NewPingCommand(m.Logger),
+			middlewares...,
+		),
+		api.CompileCommand(
+			commands.NewRestartCommand(m.Logger),
+			middlewares...,
+		),
+		api.CompileCommand(
+			commands.NewErrorTestCommand(m.Logger),
+			middlewares...,
+		),
+	}, nil
 }

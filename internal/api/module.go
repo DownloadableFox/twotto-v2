@@ -7,8 +7,8 @@ import (
 )
 
 type Module interface {
-	OnEvents(manager EventManager) error
-	OnCommands(manager CommandManager) error
+	Events() ([]EventStack, error)
+	Commands() ([]CommandStack, error)
 }
 
 type ModuleManager struct {
@@ -27,12 +27,21 @@ func (m *ModuleManager) RegisterModules(module ...Module) error {
 }
 
 func (m *ModuleManager) OnEvents(client *discordgo.Session, manager EventManager) error {
+	// Register events
 	for _, module := range m.Modules {
-		if err := module.OnEvents(manager); err != nil {
-			return fmt.Errorf("failed to register events for module %T: %w", module, err)
+		events, err := module.Events()
+		if err != nil {
+			return fmt.Errorf("failed to factory events for module %T: %w", module, err)
+		}
+
+		for _, stack := range events {
+			if err := manager.RegisterStack(stack); err != nil {
+				return fmt.Errorf("failed to register event for module %T: %w", module, err)
+			}
 		}
 	}
 
+	// Publish events
 	if err := manager.PublishEvents(client); err != nil {
 		return fmt.Errorf("failed to publish events: %w", err)
 	}
@@ -41,12 +50,21 @@ func (m *ModuleManager) OnEvents(client *discordgo.Session, manager EventManager
 }
 
 func (m *ModuleManager) OnCommands(client *discordgo.Session, manager CommandManager) error {
+	// Register commands
 	for _, module := range m.Modules {
-		if err := module.OnCommands(manager); err != nil {
-			return fmt.Errorf("failed to register commands for module %T: %w", module, err)
+		commands, err := module.Commands()
+		if err != nil {
+			return fmt.Errorf("failed to factory commands for module %T: %w", module, err)
+		}
+
+		for _, stack := range commands {
+			if err := manager.RegisterStack(stack); err != nil {
+				return fmt.Errorf("failed to register command for module %T: %w", module, err)
+			}
 		}
 	}
 
+	// Publish commands
 	if err := manager.PublishCommands(client); err != nil {
 		return fmt.Errorf("failed to publish commands: %w", err)
 	}

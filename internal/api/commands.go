@@ -29,7 +29,7 @@ type CommandMiddleware interface {
 
 type CommandManager interface {
 	PublishCommands(session *discordgo.Session) error
-	RegisterCommand(cmd Command, middleware ...CommandMiddleware) error
+	RegisterStack(stack CommandStack) error
 }
 
 type CommandManagerImpl struct {
@@ -149,17 +149,20 @@ func (cm *CommandManagerImpl) FlushCommands(session *discordgo.Session) error {
 	return nil
 }
 
-func (cm *CommandManagerImpl) RegisterCommand(cmd Command, middleware ...CommandMiddleware) error {
-	data := cmd.Data()
+func (cm *CommandManagerImpl) RegisterStack(stack CommandStack) error {
+	data := stack.Command.Data()
 
 	if _, exists := cm.commands[data.Name]; exists {
 		return errors.New("command already registered")
 	}
 
-	cm.commands[data.Name] = CommandStack{
-		Command:    cmd,
+	cm.commands[data.Name] = stack
+	return nil
+}
+
+func CompileCommand(command Command, middleware ...CommandMiddleware) CommandStack {
+	return CommandStack{
+		Command:    command,
 		Middleware: middleware,
 	}
-
-	return nil
 }

@@ -1,8 +1,6 @@
 package yiff
 
 import (
-	"fmt"
-
 	"github.com/DownloadableFox/twotto-v2/internal/api"
 	"github.com/DownloadableFox/twotto-v2/internal/modules/core/middlewares"
 	"github.com/DownloadableFox/twotto-v2/internal/modules/yiff/commands"
@@ -24,18 +22,15 @@ func NewYiffModule(parent zerolog.Logger) *YiffModule {
 	}
 }
 
-func (c *YiffModule) OnCommands(manager api.CommandManager) error {
-	// Generate middlewares
-	recoverMiddleware := middlewares.NewRecoverMiddleware(c.logger)
-
-	// Register the yiff command
-	if err := manager.RegisterCommand(commands.NewYiffCommand(c.service, c.logger), recoverMiddleware); err != nil {
-		return fmt.Errorf("failed to register yiff command: %w", err)
-	}
-
-	return nil
+func (m *YiffModule) Events() ([]api.EventStack, error) {
+	return []api.EventStack{}, nil
 }
 
-func (c *YiffModule) OnEvents(manager api.EventManager) error {
-	return nil
+func (m *YiffModule) Commands() ([]api.CommandStack, error) {
+	return []api.CommandStack{
+		api.CompileCommand(
+			commands.NewYiffCommand(m.service, m.logger),
+			middlewares.NewRecoverMiddleware(m.logger),
+		),
+	}, nil
 }

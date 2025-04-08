@@ -8,12 +8,20 @@ import (
 
 	"github.com/DownloadableFox/twotto-v2/internal/api"
 	"github.com/bwmarrin/discordgo"
-	"github.com/rs/zerolog/log"
+	"github.com/rs/zerolog"
 )
 
 var _ api.Command = (*RestartCommand)(nil)
 
-type RestartCommand struct{}
+type RestartCommand struct {
+	logger zerolog.Logger
+}
+
+func NewRestartCommand(parent zerolog.Logger) *RestartCommand {
+	return &RestartCommand{
+		logger: parent.With().Str("command", "restart").Logger(),
+	}
+}
 
 // Data implements api.Command.
 func (r *RestartCommand) Data() discordgo.ApplicationCommand {
@@ -60,7 +68,7 @@ func (r *RestartCommand) Execute(c context.Context, s *discordgo.Session, i *dis
 	}
 
 	// Log the restart
-	log.Warn().Msg("Restart command received- Restarting bot...")
+	r.logger.Warn().Msg("Restart command received- Restarting bot...")
 
 	// Close the session
 	os.Exit(0)

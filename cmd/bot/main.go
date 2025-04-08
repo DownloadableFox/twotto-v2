@@ -38,14 +38,20 @@ func main() {
 	}
 	defer client.Close()
 
+	// Set the bot's presence
 	client.Identify.Intents = discordgo.IntentsGuilds | discordgo.IntentsGuildMessages | discordgo.IntentsGuildMessageReactions
 	client.StateEnabled = true
 	client.Compress = true
+
+	log.Info().Msg("Initializing modules ...")
 
 	// Register the command manager with the Discord session
 	if err := extras.Initialize(client, commandManager); err != nil {
 		log.Fatal().Err(err).Msg("Failed to initialize extras module!")
 	}
+
+	// Register the command manager with the Discord session
+	log.Info().Msg("Publishing commands ...")
 
 	// Register the command manager with the Discord session
 	if err := commandManager.PublishCommands(client); err != nil {
@@ -56,7 +62,7 @@ func main() {
 	botID := client.State.User.ID
 	permissions := discordgo.PermissionManageMessages | discordgo.PermissionSendMessages
 	inviteLink := fmt.Sprintf("https://discord.com/oauth2/authorize?client_id=%s&scope=bot&permissions=%d", botID, permissions)
-	fmt.Println("Invite the bot using the following link:", inviteLink)
+	log.Info().Msgf("Bot invite link: %s", inviteLink)
 
 	log.Info().Msg("Bot is set and running!")
 	sc := make(chan os.Signal, 1)

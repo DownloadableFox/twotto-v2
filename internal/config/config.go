@@ -7,6 +7,13 @@ import (
 
 type Config struct {
 	BotToken string `json:"bot_token"`
+	Colors   struct {
+		Info    int `json:"info"`
+		Result  int `json:"result"`
+		Success int `json:"success"`
+		Warning int `json:"warning"`
+		Error   int `json:"error"`
+	} `json:"colors"`
 }
 
 type ConfigProvider interface {

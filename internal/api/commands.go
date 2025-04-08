@@ -3,6 +3,7 @@ package api
 import (
 	"context"
 	"errors"
+	"fmt"
 	"runtime"
 
 	"github.com/bwmarrin/discordgo"
@@ -49,6 +50,11 @@ func (cm *CommandManagerImpl) PublishCommands(session *discordgo.Session) error 
 
 	var publishChannel = make(chan GeneratedCommand, len(cm.commands))
 
+	// Flush commands before publishing new ones
+	if err := cm.FlushCommands(session); err != nil {
+		return fmt.Errorf("failed to flush commands: %w", err)
+	}
+
 	go func() {
 		for _, stack := range cm.commands {
 			data := stack.Command.Data()
@@ -77,16 +83,13 @@ func (cm *CommandManagerImpl) PublishCommands(session *discordgo.Session) error 
 
 	// TODO: Multi-thread this to allow for multiple commands to be published at once
 	// Wait for all commands to be published
-	registeredCommands := make(map{string]*discordgo.Command)
 	for cmd := range publishChannel {
 		data := cmd.data
 		next := cmd.execute
 
 		// Register the command with the Discord API
-		if command, err := session.ApplicationCommandCreate(session.State.User.ID, "", &data); err != nil {
+		if _, err := session.ApplicationCommandCreate(session.State.User.ID, "", &data); err != nil {
 			return err
-		} else {
-			registeredCommands = append(registeredCommands, command)
 		}
 
 		// Register the command handler with the session
@@ -106,6 +109,37 @@ func (cm *CommandManagerImpl) PublishCommands(session *discordgo.Session) error 
 				log.Error().Err(err).Msg("Unhandled error in command execution")
 			}
 		})
+	}
+
+	return nil
+}
+
+func (cm *CommandManagerImpl) FlushCommands(session *discordgo.Session) error {
+	var flushChannel = make(chan string, len(cm.commands))
+
+	go func() {
+		defer close(flushChannel)
+
+		// Get currently registered commands
+		registeredCommands, err := session.ApplicationCommands(session.State.User.ID, "")
+		if err != nil {
+			log.Warn().Err(err).Msg("Failed to fetch registered commands")
+			return
+		}
+
+		// Check if the command is registered
+		for _, cmd := range registeredCommands {
+			if _, exists := cm.commands[cmd.Name]; !exists {
+				flushChannel <- cmd.ID
+			}
+		}
+	}()
+
+	// Unregister the commands
+	for cmdID := range flushChannel {
+		if err := session.ApplicationCommandDelete(session.State.User.ID, "", cmdID); err != nil {
+			return fmt.Errorf("failed to delete command %q: %w", cmdID, err)
+		}
 	}
 
 	return nil
